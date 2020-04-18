@@ -13,47 +13,7 @@ import (
 	"gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 )
 
-var testData = `
-{
-	"payload": {
-		"before": {
-		"id": 50,
-		"province_id": 999,
-		"seq": 0,
-		"created_at": "2020-04-18T08:54:10Z"
-		},
-		"after": {
-		"id": 50,
-		"province_id": 999,
-		"seq": null,
-		"created_at": "2020-04-18T08:54:10Z"
-		},
-		"source": {
-		"version": "1.1.1.Final",
-		"connector": "mysql",
-		"name": "dbserver2",
-		"ts_ms": 0,
-		"snapshot": "true",
-		"db": "batch",
-		"table": "batch_seq",
-		"server_id": 0,
-		"gtid": null,
-		"file": "mysql-bin.000082",
-		"pos": 289021,
-		"row": 0,
-		"thread": null,
-		"query": null
-		},
-		"op": "c",
-		"ts_ms": 1587202401764,
-		"transaction": null
-	}
-}
-`
-
 func main() {
-
-	log.Fatal(processData([]byte(testData)))
 
 	cfg := config.Get()
 	db := core.InitDB(cfg.DBAddress, cfg.DBSourceName, cfg.DBUser, cfg.DBPassword, cfg.DBPort, cfg.DBLog)
