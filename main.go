@@ -51,7 +51,7 @@ func main() {
 			err = db.Exec(qry).Error
 			if err != nil {
 				log.Println("error exec qry ", err, "data query: ", qry)
-				errLog := db.Exec(fmt.Sprintf("INSERT INTO data_err (data, error) VALUES('%s', '%s')", string(msg.Value), sanitize.BaseName(err.Error()))).Error
+				errLog := db.Exec(fmt.Sprintf("INSERT INTO data_err (data, error, `table_name`, `db_name`) VALUES('%s', '%s', '%s', '%s')", string(msg.Value), sanitize.BaseName(err.Error()), cfg.Table, cfg.DBName)).Error
 
 				if errLog != nil {
 					log.Println("failed to insert log error", errLog)
