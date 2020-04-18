@@ -12,7 +12,7 @@ type Config struct {
 	Group  string `envconfig:"GROUP" default:"group-name"`
 	// FB Information
 	DBAddress    string `envconfig:"DBADDRESS" default:"localhost"`
-	DBSourceName string `envconfig:"DBNAME" default:"etl"`
+	DBSourceName string `envconfig:"DBSOURCE" default:"etl"`
 	DBUser       string `envconfig:"DBUSER" default:"root"`
 	DBPassword   string `envconfig:"DBPASSWORD" default:""`
 	DBPort       int    `envconfig:"DBPORT" default:"3306"`
