@@ -13,7 +13,47 @@ import (
 	"gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 )
 
+var testData = `
+{
+	"payload": {
+		"before": {
+		"id": 50,
+		"province_id": 999,
+		"seq": 0,
+		"created_at": "2020-04-18T08:54:10Z"
+		},
+		"after": {
+		"id": 50,
+		"province_id": 999,
+		"seq": null,
+		"created_at": "2020-04-18T08:54:10Z"
+		},
+		"source": {
+		"version": "1.1.1.Final",
+		"connector": "mysql",
+		"name": "dbserver2",
+		"ts_ms": 0,
+		"snapshot": "true",
+		"db": "batch",
+		"table": "batch_seq",
+		"server_id": 0,
+		"gtid": null,
+		"file": "mysql-bin.000082",
+		"pos": 289021,
+		"row": 0,
+		"thread": null,
+		"query": null
+		},
+		"op": "c",
+		"ts_ms": 1587202401764,
+		"transaction": null
+	}
+}
+`
+
 func main() {
+
+	log.Fatal(processData([]byte(testData)))
 
 	cfg := config.Get()
 	db := core.InitDB(cfg.DBAddress, cfg.DBSourceName, cfg.DBUser, cfg.DBPassword, cfg.DBPort, cfg.DBLog)
@@ -47,26 +87,27 @@ func main() {
 			if err != nil {
 				log.Fatal("error exec qry ", err)
 				db.Exec(fmt.Sprintf("INSERT INTO data_err (data, error) VALUES('%s', '%s')", string(msg.Value), err.Error()))
+				if cfg.Republish {
+					deliveryChan := make(chan kafka.Event)
 
-				deliveryChan := make(chan kafka.Event)
+					err = p.Produce(&kafka.Message{
+						TopicPartition: kafka.TopicPartition{Topic: &topicName, Partition: kafka.PartitionAny},
+						Value:          []byte(msg.Value),
+						// Headers:        []kafka.Header{{Key: "myTestHeader", Value: []byte("header values are binary")}},
+					}, deliveryChan)
 
-				err = p.Produce(&kafka.Message{
-					TopicPartition: kafka.TopicPartition{Topic: &topicName, Partition: kafka.PartitionAny},
-					Value:          []byte(msg.Value),
-					// Headers:        []kafka.Header{{Key: "myTestHeader", Value: []byte("header values are binary")}},
-				}, deliveryChan)
+					e := <-deliveryChan
+					m := e.(*kafka.Message)
 
-				e := <-deliveryChan
-				m := e.(*kafka.Message)
+					if m.TopicPartition.Error != nil {
+						log.Printf("Republish message failed: %v\n", m.TopicPartition.Error)
+					} else {
+						log.Printf("Republish message to topic %s [%d] at offset %v\n",
+							*m.TopicPartition.Topic, m.TopicPartition.Partition, m.TopicPartition.Offset)
+					}
 
-				if m.TopicPartition.Error != nil {
-					log.Printf("Republish message failed: %v\n", m.TopicPartition.Error)
-				} else {
-					log.Printf("Republish message to topic %s [%d] at offset %v\n",
-						*m.TopicPartition.Topic, m.TopicPartition.Partition, m.TopicPartition.Offset)
+					close(deliveryChan)
 				}
-
-				close(deliveryChan)
 			}
 
 		} else {
@@ -86,6 +127,9 @@ func mapToString(param map[string]interface{}) (string, string, string, string) 
 	re := regexp.MustCompile("((19|20)\\d\\d)-(0?[1-9]|1[012])-(0?[1-9]|[12][0-9]|3[01])")
 
 	for k, v := range param {
+		if v == nil {
+			continue
+		}
 		key = append(key, k)
 
 		p := fmt.Sprintf("'%v'", v)

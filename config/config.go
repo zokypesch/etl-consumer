@@ -5,11 +5,12 @@ import "github.com/kelseyhightower/envconfig"
 // Config struct of configuration
 type Config struct {
 	// Kafka Information
-	Kafka  string `envconfig:"KAFKA" default:"localhost:9092"`
-	Server string `envconfig:"SERVER" default:"server_name"`
-	DBName string `envconfig:"DBNAME" default:"db_name"`
-	Table  string `envconfig:"TABLE" default:"table_name"`
-	Group  string `envconfig:"GROUP" default:"group-name"`
+	Kafka     string `envconfig:"KAFKA" default:"localhost:9092"`
+	Server    string `envconfig:"SERVER" default:"server_name"`
+	DBName    string `envconfig:"DBNAME" default:"db_name"`
+	Table     string `envconfig:"TABLE" default:"table_name"`
+	Group     string `envconfig:"GROUP" default:"group-name"`
+	Republish bool   `envconfig:"REPUBLISH" default:"false"`
 	// FB Information
 	DBAddress    string `envconfig:"DBADDRESS" default:"localhost"`
 	DBSourceName string `envconfig:"DBSOURCE" default:"etl"`
