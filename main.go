@@ -45,7 +45,7 @@ func main() {
 			qry := processData(msg.Value)
 			err = db.Exec(qry).Error
 			if err != nil {
-				log.Fatal("error exec qry ", err)
+				log.Println("error exec qry ", err)
 				db.Exec(fmt.Sprintf("INSERT INTO data_err (data, error) VALUES('%s', '%s')", string(msg.Value), err.Error()))
 				if cfg.Republish {
 					deliveryChan := make(chan kafka.Event)
