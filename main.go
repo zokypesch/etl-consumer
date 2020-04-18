@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/kennygrant/sanitize"
 	"github.com/zokypesch/etl/config"
 	"github.com/zokypesch/etl/data"
 	"github.com/zokypesch/proto-lib/core"
@@ -41,7 +42,6 @@ func main() {
 	for {
 		msg, err := c.ReadMessage(-1)
 		if err == nil {
-			log.Printf("Execute message on %s: %s", msg.TopicPartition, topicName)
 			qry, errQry := processData(msg.Value)
 
 			if errQry != nil {
@@ -50,8 +50,8 @@ func main() {
 
 			err = db.Exec(qry).Error
 			if err != nil {
-				log.Println("error exec qry ", err)
-				errLog := db.Exec(fmt.Sprintf("INSERT INTO data_err (data, error) VALUES('%s', '%s')", string(msg.Value), err.Error()))
+				log.Println("error exec qry ", err, "data query: ", qry)
+				errLog := db.Exec(fmt.Sprintf("INSERT INTO data_err (data, error) VALUES('%s', '%s')", string(msg.Value), sanitize.BaseName(err.Error()))).Error
 
 				if errLog != nil {
 					log.Println("failed to insert log error", errLog)
@@ -100,7 +100,7 @@ func mapToString(param map[string]interface{}) (string, string, string, string) 
 		if v == nil {
 			continue
 		}
-		key = append(key, k)
+		key = append(key, fmt.Sprintf("`%s`", k))
 
 		p := fmt.Sprintf("'%v'", v)
 		if re.MatchString(p) {

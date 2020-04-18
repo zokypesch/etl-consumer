@@ -11,6 +11,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.14.3 // indirect
 	github.com/jinzhu/gorm v1.9.12 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/kennygrant/sanitize v1.2.4
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/prometheus/client_golang v1.5.1 // indirect
 	github.com/sirupsen/logrus v1.5.0 // indirect
