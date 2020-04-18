@@ -41,12 +41,22 @@ func main() {
 	for {
 		msg, err := c.ReadMessage(-1)
 		if err == nil {
-			log.Printf("Execute message on %s: %s\n", msg.TopicPartition, string(msg.Value))
-			qry := processData(msg.Value)
+			log.Printf("Execute message on %s: %s", msg.TopicPartition, topicName)
+			qry, errQry := processData(msg.Value)
+
+			if errQry != nil {
+				log.Println("failed parse json: ", errQry)
+			}
+
 			err = db.Exec(qry).Error
 			if err != nil {
 				log.Println("error exec qry ", err)
-				db.Exec(fmt.Sprintf("INSERT INTO data_err (data, error) VALUES('%s', '%s')", string(msg.Value), err.Error()))
+				errLog := db.Exec(fmt.Sprintf("INSERT INTO data_err (data, error) VALUES('%s', '%s')", string(msg.Value), err.Error()))
+
+				if errLog != nil {
+					log.Println("failed to insert log error", errLog)
+				}
+
 				if cfg.Republish {
 					deliveryChan := make(chan kafka.Event)
 
@@ -103,16 +113,16 @@ func mapToString(param map[string]interface{}) (string, string, string, string) 
 	return strings.Join(key, ","), strings.Join(val, ","), strings.Join(comb, ","), strings.Join(comb, " AND ")
 }
 
-func processData(param []byte) string {
+func processData(param []byte) (string, error) {
 	var expected data.Response
 
 	err := json.Unmarshal(param, &expected)
 	if err != nil {
-		log.Println(err)
+		return "", err
 	}
 
 	if len(expected.Payload.Source.Query) > 5 {
-		return expected.Payload.Source.Query
+		return expected.Payload.Source.Query, nil
 	}
 
 	// processing
@@ -133,5 +143,5 @@ func processData(param []byte) string {
 		qry = fmt.Sprintf("DELETE FROM %s WHERE %s", tbl, cond)
 	}
 
-	return qry
+	return qry, nil
 }
