@@ -44,8 +44,14 @@ func main() {
 	/* rds internal mark */
 	topicName := fmt.Sprintf("%s.%s.%s", cfg.Server, cfg.DBName, cfg.Table)
 	scheme := fmt.Sprintf("%s", cfg.Server)
-	c.SubscribeTopics([]string{topicName, scheme}, nil)
-	log.Printf("starting subscribe %s.%s.%s and scheme of: %s", cfg.Server, cfg.DBName, cfg.Table, scheme)
+	if cfg.ActiveScheme {
+		c.SubscribeTopics([]string{topicName, scheme}, nil)
+		log.Printf("starting subscribe %s.%s.%s and scheme of: %s", cfg.Server, cfg.DBName, cfg.Table, scheme)
+	} else {
+		c.SubscribeTopics([]string{topicName}, nil)
+		log.Printf("starting subscribe %s.%s.%s", cfg.Server, cfg.DBName, cfg.Table)
+	}
+
 	for {
 		msg, err := c.ReadMessage(-1)
 		if err != nil {
