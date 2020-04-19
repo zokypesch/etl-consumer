@@ -60,7 +60,7 @@ func main() {
 		}
 
 		if *msg.TopicPartition.Topic == scheme {
-			qryScheme, execute, err := processScheme(msg.Value, cfg.Table, api)
+			qryScheme, execute, err := processScheme(msg.Value, cfg.Table, api, cfg.ReplaceAllScheme)
 
 			if err != nil {
 				log.Println("schema erorr: ", err.Error())
@@ -196,7 +196,7 @@ func processData(param []byte) (string, error) {
 	return qry, nil
 }
 
-func processScheme(param []byte, table string, api *client.API) (string, bool, error) {
+func processScheme(param []byte, table string, api *client.API, replaceAll bool) (string, bool, error) {
 
 	var expected scheme.Response
 	err := json.Unmarshal(param, &expected)
@@ -209,7 +209,7 @@ func processScheme(param []byte, table string, api *client.API) (string, bool, e
 		return "", false, nil
 	}
 
-	if expected.Payload.Source.Table != table {
+	if !replaceAll && expected.Payload.Source.Table != table {
 		// is not source from this
 		return "", false, nil
 	}
