@@ -23,7 +23,6 @@ type Config struct {
 	AutoOffset       string `envconfig:"AUTO_OFFSET" default:"latest"` // earliest
 	ActiveScheme     bool   `envconfig:"ACTIVE_SCHEME" default:"true"`
 	ReplaceAllScheme bool   `envconfig:"REPLACE_ALL_SCHEME" default:"true"`
-	// HistoryPattern string `envconfig:"HIST_PATTERN" default:"dbhistory"`
 }
 
 // singleton of data
