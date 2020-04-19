@@ -16,6 +16,7 @@ type Config struct {
 	DBName       string `envconfig:"DBNAME" default:"your_db_debezium"`
 	Table        string `envconfig:"TABLE" default:"table_name"`
 	Group        string `envconfig:"GROUP" default:"name-group"`
+	AutoOffset   string `envconfig:"AUTO_OFFSET" default:"latest"` // earliest
 	ActiveScheme bool   `envconfig:"ACTIVE_SCHEME" default:"false"`
 	Republish    bool   `envconfig:"REPUBLISH" default:"false"`
 	Connector    string `envconfig:"CONNECTOR" default:"connector-name"`

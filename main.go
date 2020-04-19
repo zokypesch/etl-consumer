@@ -25,7 +25,7 @@ func main() {
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers": cfg.Kafka,
 		"group.id":          cfg.Group,
-		"auto.offset.reset": "earliest",
+		"auto.offset.reset": cfg.AutoOffset, // earliest for beginning
 	})
 
 	if err != nil {
