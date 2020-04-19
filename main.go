@@ -126,6 +126,10 @@ func main() {
 
 		err = db.Exec(qry).Error
 		if err != nil {
+			if strings.Contains(err.Error(), "Duplicate entry") {
+				// skip duplicate entryy
+				continue
+			}
 			log.Println("error exec qry :", err.Error())
 			log.Println("data query: ", qry)
 			errLog := db.Exec(fmt.Sprintf("INSERT INTO data_err (data, error, `table_name`, `db_name`) VALUES('%s', '%s', '%s', '%s')", string(msg.Value), sanitize.BaseName(err.Error()), cfg.Table, cfg.DBName)).Error
