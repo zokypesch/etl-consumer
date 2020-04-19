@@ -50,7 +50,8 @@ func main() {
 
 			err = db.Exec(qry).Error
 			if err != nil {
-				log.Println("error exec qry ", err, "data query: ", qry)
+				log.Println("error exec qry :", err.Error())
+				log.Println("data query: ", qry)
 				errLog := db.Exec(fmt.Sprintf("INSERT INTO data_err (data, error, `table_name`, `db_name`) VALUES('%s', '%s', '%s', '%s')", string(msg.Value), sanitize.BaseName(err.Error()), cfg.Table, cfg.DBName)).Error
 
 				if errLog != nil {
@@ -102,16 +103,16 @@ func mapToString(param map[string]interface{}) (string, string, string, string) 
 		}
 		key = append(key, fmt.Sprintf("`%s`", k))
 
-		p := fmt.Sprintf("'%v'", v)
+		p := strings.Replace(fmt.Sprintf("%v", v), "'", "", -1)
+
+		p = fmt.Sprintf("'%s'", p)
 		if re.MatchString(p) {
 			p = strings.Replace(p, "T", " ", -1)
 			p = strings.Replace(p, "Z", "", -1)
-		} else {
-			p = strings.Replace(p, "'", "", -1)
 		}
 
 		val = append(val, p)
-		comb = append(comb, fmt.Sprintf("%s = %s ", k, p))
+		comb = append(comb, fmt.Sprintf("`%s` = %s ", k, p))
 	}
 	return strings.Join(key, ","), strings.Join(val, ","), strings.Join(comb, ","), strings.Join(comb, " AND ")
 }
