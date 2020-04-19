@@ -81,3 +81,10 @@ localhost:8083/connectors/etl-connector-prod-region
 	}
 }
 ```
+
+# how to install tresseract
+brew install tesseract-lang
+brew install imagemagick
+
+sudo apt install tesseract-ocr
+sudo apt install libtesseract-dev
