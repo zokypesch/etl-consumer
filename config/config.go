@@ -17,7 +17,7 @@ type Config struct {
 	Table        string `envconfig:"TABLE" default:"table_name"`
 	Group        string `envconfig:"GROUP" default:"name-group"`
 	ActiveScheme bool   `envconfig:"ACTIVE_SCHEME" default:"false"`
-	Republish    bool   `envconfig:"REPUBLISH" default:"true"`
+	Republish    bool   `envconfig:"REPUBLISH" default:"false"`
 	Connector    string `envconfig:"CONNECTOR" default:"connector-name"`
 	DebeziumAddr string `envconfig:"DEBEZIUM_ADDR" default:"connector-address"` //localhost
 	DebeziumPort string `envconfig:"DEBEZIUM_PORT" default:"8083"`
