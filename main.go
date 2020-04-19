@@ -42,15 +42,18 @@ func main() {
 	api := client.NewAPI(cfg.DebeziumAddr, cfg.DebeziumPort, cfg.Connector)
 
 	/* rds internal mark */
-	topicName := fmt.Sprintf("%s.%s.%s", cfg.Server, cfg.DBName, cfg.Table)
+	var listTopic []string
+	for _, vTable := range cfg.Table {
+		listTopic = append(listTopic, fmt.Sprintf("%s.%s.%s", cfg.Server, cfg.DBName, vTable))
+	}
+
 	scheme := fmt.Sprintf("%s", cfg.Server)
 	if cfg.ActiveScheme {
-		c.SubscribeTopics([]string{topicName, scheme}, nil)
-		log.Printf("starting subscribe %s.%s.%s and scheme of: %s", cfg.Server, cfg.DBName, cfg.Table, scheme)
-	} else {
-		c.SubscribeTopics([]string{topicName}, nil)
-		log.Printf("starting subscribe %s.%s.%s", cfg.Server, cfg.DBName, cfg.Table)
+		listTopic = append(listTopic, scheme)
 	}
+
+	c.SubscribeTopics(listTopic, nil)
+	log.Printf("starting subscribe %s.%s.%s in scheme of: %s", cfg.Server, cfg.DBName, cfg.Table, scheme)
 
 	for {
 		msg, err := c.ReadMessage(-1)
@@ -59,7 +62,8 @@ func main() {
 			continue
 		}
 
-		if *msg.TopicPartition.Topic == scheme {
+		topicSource := *msg.TopicPartition.Topic
+		if topicSource == scheme {
 			qryScheme, execute, err := processScheme(msg.Value, cfg.Table, api, cfg.ReplaceAllScheme)
 
 			if err != nil {
@@ -113,7 +117,7 @@ func main() {
 				deliveryChan := make(chan kafka.Event)
 
 				err = p.Produce(&kafka.Message{
-					TopicPartition: kafka.TopicPartition{Topic: &topicName, Partition: kafka.PartitionAny},
+					TopicPartition: kafka.TopicPartition{Topic: &topicSource, Partition: kafka.PartitionAny},
 					Value:          []byte(msg.Value),
 					// Headers:        []kafka.Header{{Key: "myTestHeader", Value: []byte("header values are binary")}},
 				}, deliveryChan)
@@ -196,7 +200,7 @@ func processData(param []byte) (string, error) {
 	return qry, nil
 }
 
-func processScheme(param []byte, table string, api *client.API, replaceAll bool) (string, bool, error) {
+func processScheme(param []byte, table []string, api *client.API, replaceAll bool) (string, bool, error) {
 
 	var expected scheme.Response
 	err := json.Unmarshal(param, &expected)
@@ -209,9 +213,18 @@ func processScheme(param []byte, table string, api *client.API, replaceAll bool)
 		return "", false, nil
 	}
 
-	if !replaceAll && expected.Payload.Source.Table != table {
-		// is not source from this
-		return "", false, nil
+	if !replaceAll {
+		found := false
+		for _, v := range table {
+			if expected.Payload.Source.Table == v {
+				found = true
+				break
+			}
+		}
+		if !found {
+			// is not source from this
+			return "", false, nil
+		}
 	}
 
 	if len(expected.Payload.DDL) == 0 {
