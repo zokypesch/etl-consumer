@@ -109,3 +109,32 @@ func CleanString(param string) string {
 	}
 	return reg.ReplaceAllString(param, "")
 }
+
+var listBlock = []string{
+	"CREATE DATABASE",
+	"USE",
+	"DROP DATABASE",
+}
+
+var listReclaim = []string{
+	"DROP TABLE",
+}
+
+// IsBlock for block checked
+func IsBlock(param string, reclaim bool) bool {
+	for _, v := range listBlock {
+		if ch := strings.Contains(param, v); ch {
+			return ch
+		}
+	}
+
+	if !reclaim {
+		for _, r := range listReclaim {
+			if ch := strings.Contains(param, r); ch {
+				return ch
+			}
+		}
+	}
+
+	return false
+}

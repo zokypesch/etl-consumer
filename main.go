@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/zokypesch/etl/config"
 	"github.com/zokypesch/etl/data"
 	"github.com/zokypesch/etl/scheme"
+	"github.com/zokypesch/etl/utils"
 	"github.com/zokypesch/proto-lib/core"
 	"gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 )
@@ -49,7 +51,7 @@ func main() {
 
 	scheme := fmt.Sprintf("%s", cfg.Server)
 	if cfg.ActiveScheme {
-		listTopic = append(listTopic, scheme)
+		listTopic = []string{scheme}
 	}
 
 	c.SubscribeTopics(listTopic, nil)
@@ -64,7 +66,7 @@ func main() {
 
 		topicSource := *msg.TopicPartition.Topic
 		if topicSource == scheme {
-			qryScheme, execute, err := processScheme(msg.Value, cfg.Table, api, cfg.ReplaceAllScheme)
+			qryScheme, execute, err := processScheme(msg.Value, cfg.Table, api, cfg.ReplaceAllScheme, cfg.Reclaim)
 
 			if err != nil {
 				log.Println("schema erorr: ", err.Error())
@@ -88,6 +90,25 @@ func main() {
 
 				if errLogScheme != nil {
 					log.Println("failed to insert log error", errLogScheme)
+				}
+
+				if cfg.Republish {
+					count := 1
+					for _, headerMsg := range msg.Headers {
+						if headerMsg.Key == "loop" {
+							loop := string(headerMsg.Value)
+
+							num, err := strconv.Atoi(loop)
+							if err == nil {
+								count = num + 1
+							}
+						}
+					}
+
+					if count < cfg.RepublishLimit {
+						log.Println("republish message count: ", count)
+						publish(topicSource, p, msg.Value, []byte(strconv.Itoa(count)))
+					}
 				}
 				continue
 			}
@@ -114,30 +135,56 @@ func main() {
 			}
 
 			if cfg.Republish {
-				deliveryChan := make(chan kafka.Event)
-
-				err = p.Produce(&kafka.Message{
-					TopicPartition: kafka.TopicPartition{Topic: &topicSource, Partition: kafka.PartitionAny},
-					Value:          []byte(msg.Value),
-					// Headers:        []kafka.Header{{Key: "myTestHeader", Value: []byte("header values are binary")}},
-				}, deliveryChan)
-
-				e := <-deliveryChan
-				m := e.(*kafka.Message)
-
-				if m.TopicPartition.Error != nil {
-					log.Printf("Republish message failed: %v\n", m.TopicPartition.Error)
-				} else {
-					log.Printf("Republish message to topic %s [%d] at offset %v\n",
-						*m.TopicPartition.Topic, m.TopicPartition.Partition, m.TopicPartition.Offset)
+				// check loop number
+				count := 1
+				for _, headerMsg := range msg.Headers {
+					if headerMsg.Key == "loop" {
+						loop := string(headerMsg.Value)
+						num, err := strconv.Atoi(loop)
+						if err == nil {
+							count = num + 1
+						}
+					}
 				}
 
-				close(deliveryChan)
+				if count < cfg.RepublishLimit {
+					log.Println("republish message count: ", count)
+					publish(topicSource, p, msg.Value, []byte(strconv.Itoa(count)))
+				}
+
 			}
 		}
 	}
 
 	c.Close()
+}
+
+func publish(topicSource string, p *kafka.Producer, val []byte, count []byte) {
+	log.Println("republish: ", topicSource)
+	// wait for 100ms
+	time.Sleep(time.Millisecond * 100)
+	deliveryChan := make(chan kafka.Event)
+
+	err := p.Produce(&kafka.Message{
+		TopicPartition: kafka.TopicPartition{Topic: &topicSource, Partition: kafka.PartitionAny},
+		Value:          val,
+		Headers:        []kafka.Header{{Key: "loop", Value: count}},
+	}, deliveryChan)
+
+	if err != nil {
+		log.Println("err publish: ", err.Error())
+	}
+	e := <-deliveryChan
+	m := e.(*kafka.Message)
+
+	if m.TopicPartition.Error != nil {
+		log.Printf("Republish message failed: %v\n", m.TopicPartition.Error)
+	} else {
+		log.Printf("Republish message to topic %s [%d] at offset %v\n",
+			*m.TopicPartition.Topic, m.TopicPartition.Partition, m.TopicPartition.Offset)
+	}
+
+	close(deliveryChan)
 }
 
 func mapToString(param map[string]interface{}) (string, string, string, string) {
@@ -200,7 +247,7 @@ func processData(param []byte) (string, error) {
 	return qry, nil
 }
 
-func processScheme(param []byte, table []string, api *client.API, replaceAll bool) (string, bool, error) {
+func processScheme(param []byte, table []string, api *client.API, replaceAll bool, reclaim bool) (string, bool, error) {
 
 	var expected scheme.Response
 	err := json.Unmarshal(param, &expected)
@@ -229,6 +276,10 @@ func processScheme(param []byte, table []string, api *client.API, replaceAll boo
 
 	if len(expected.Payload.DDL) == 0 {
 		return "", false, fmt.Errorf("unexpected ddl")
+	}
+
+	if bl := utils.IsBlock(expected.Payload.DDL, reclaim); bl {
+		return "", false, nil
 	}
 
 	// pause sync process

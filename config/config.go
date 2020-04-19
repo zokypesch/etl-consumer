@@ -8,20 +8,22 @@ type Config struct {
 	DBAddress        string   `envconfig:"DBADDRESS" default:"localhost"`
 	DBSourceName     string   `envconfig:"DBSOURCE" default:"master_etl"`
 	DBUser           string   `envconfig:"DBUSER" default:"etl_master"`
-	DBPassword       string   `envconfig:"DBPASSWORD" default:"password"`
+	DBPassword       string   `envconfig:"DBPASSWORD" default:"your_db_password"`
 	DBPort           int      `envconfig:"DBPORT" default:"3306"`
 	DBLog            bool     `envconfig:"DB_LOG" default:"false"`
-	Kafka            string   `envconfig:"KAFKA" default:"localhost:9092"`
-	Server           string   `envconfig:"SERVER" default:"server_debezium"`
-	DBName           string   `envconfig:"DBNAME" default:"your_db_debezium"`
-	Table            []string `envconfig:"TABLE" default:"table_name1,table_name2"`
+	Kafka            string   `envconfig:"KAFKA" default:"172.28.14.13:9092"`
+	Reclaim          bool     `envconfig:"RECLAIM" default:"false"`
+	Server           string   `envconfig:"SERVER" default:"dbserver_name"`
+	DBName           string   `envconfig:"DBNAME" default:"db_name"`
+	Table            []string `envconfig:"TABLE" default:"table_name1,table2"`
 	Group            string   `envconfig:"GROUP" default:"name-group"`
 	Republish        bool     `envconfig:"REPUBLISH" default:"true"`
-	Connector        string   `envconfig:"CONNECTOR" default:"connector-name"`
-	DebeziumAddr     string   `envconfig:"DEBEZIUM_ADDR" default:"connector-address"`
+	RepublishLimit   int      `envconfig:"REPUBLISH_LIMIT" default:"3"`
+	Connector        string   `envconfig:"CONNECTOR" default:"etl-connector-name"`
+	DebeziumAddr     string   `envconfig:"DEBEZIUM_ADDR" default:"172.28.14.13"`
 	DebeziumPort     string   `envconfig:"DEBEZIUM_PORT" default:"8083"`
 	AutoOffset       string   `envconfig:"AUTO_OFFSET" default:"latest"` // earliest
-	ActiveScheme     bool     `envconfig:"ACTIVE_SCHEME" default:"true"`
+	ActiveScheme     bool     `envconfig:"ACTIVE_SCHEME" default:"false"`
 	ReplaceAllScheme bool     `envconfig:"REPLACE_ALL_SCHEME" default:"true"`
 }
 
