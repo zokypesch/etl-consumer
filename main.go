@@ -106,7 +106,10 @@ func mapToString(param map[string]interface{}) (string, string, string, string) 
 		if re.MatchString(p) {
 			p = strings.Replace(p, "T", " ", -1)
 			p = strings.Replace(p, "Z", "", -1)
+		} else {
+			p = strings.Replace(p, "'", "", -1)
 		}
+
 		val = append(val, p)
 		comb = append(comb, fmt.Sprintf("%s = %s ", k, p))
 	}
