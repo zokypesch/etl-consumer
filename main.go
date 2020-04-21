@@ -121,6 +121,10 @@ func main() {
 			continue
 		}
 
+		if len(string(msg.Value)) == 0 {
+			continue
+		}
+
 		qry, errQry := processData(msg.Value, cfg)
 
 		if errQry != nil {
