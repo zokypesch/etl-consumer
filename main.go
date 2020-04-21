@@ -121,7 +121,7 @@ func main() {
 			continue
 		}
 
-		qry, errQry := processData(msg.Value)
+		qry, errQry := processData(msg.Value, cfg)
 
 		if errQry != nil {
 			log.Println("failed parse json: ", errQry, string(msg.Value))
@@ -195,7 +195,8 @@ func publish(topicSource string, p *kafka.Producer, val []byte, count []byte) {
 	close(deliveryChan)
 }
 
-func mapToString(param map[string]interface{}, fields []data.Field, action string) (string, string, string, string) {
+func mapToString(param map[string]interface{}, fields []data.Field,
+	action string, cfg *config.Config) (string, string, string, string) {
 	var key []string
 	var val []string
 	var comb []string
@@ -257,9 +258,14 @@ func mapToString(param map[string]interface{}, fields []data.Field, action strin
 		case "io.debezium.time.Timestamp":
 			i := v.(float64)
 			nanos := int64(i) * 1000000
+			var t time.Time
 
-			// t := time.Unix(0, nanos).Add(time.Hour * -7)
-			t := time.Unix(0, nanos)
+			if cfg.WithTimezone {
+				t = time.Unix(0, nanos).Add(time.Hour * -7)
+			} else {
+				t = time.Unix(0, nanos)
+			}
+
 			p = fmt.Sprintf("'%s'", t.Format("2006-01-02 15:04:05"))
 		case "io.debezium.time.MicroTime":
 			i := v.(float64)
@@ -306,7 +312,7 @@ func mapToString(param map[string]interface{}, fields []data.Field, action strin
 	return strings.Join(key, ","), strings.Join(val, ","), strings.Join(comb, ","), strings.Join(comb, " AND ")
 }
 
-func processData(param []byte) (string, error) {
+func processData(param []byte, cfg *config.Config) (string, error) {
 	var expected data.Response
 
 	err := json.Unmarshal(param, &expected)
@@ -325,15 +331,15 @@ func processData(param []byte) (string, error) {
 	qry := ""
 	if expected.Payload.Before == nil && expected.Payload.After != nil {
 		// insert query
-		field, values, _, _ := mapToString(expected.Payload.After, expected.Schema.Fields, "after")
+		field, values, _, _ := mapToString(expected.Payload.After, expected.Schema.Fields, "after", cfg)
 		qry = fmt.Sprintf("INSERT INTO `%s` (%s) VALUES (%s)", tbl, field, values)
 	} else if expected.Payload.After != nil && expected.Payload.Before != nil {
-		_, _, comb, _ := mapToString(expected.Payload.After, expected.Schema.Fields, "after")
-		_, _, _, cond := mapToString(expected.Payload.Before, expected.Schema.Fields, "before")
+		_, _, comb, _ := mapToString(expected.Payload.After, expected.Schema.Fields, "after", cfg)
+		_, _, _, cond := mapToString(expected.Payload.Before, expected.Schema.Fields, "before", cfg)
 		qry = fmt.Sprintf("UPDATE `%s` SET %s WHERE %s", tbl, comb, cond)
 	} else if expected.Payload.Before != nil && expected.Payload.After == nil {
 		// delete query
-		_, _, _, cond := mapToString(expected.Payload.Before, expected.Schema.Fields, "before")
+		_, _, _, cond := mapToString(expected.Payload.Before, expected.Schema.Fields, "before", cfg)
 		qry = fmt.Sprintf("DELETE FROM `%s` WHERE %s", tbl, cond)
 	}
 

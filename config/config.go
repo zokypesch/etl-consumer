@@ -25,6 +25,8 @@ type Config struct {
 	AutoOffset       string   `envconfig:"AUTO_OFFSET" default:"latest"` // earliest
 	ActiveScheme     bool     `envconfig:"ACTIVE_SCHEME" default:"false"`
 	ReplaceAllScheme bool     `envconfig:"REPLACE_ALL_SCHEME" default:"true"`
+	WithTimezone     bool     `envconfig:"WITH_TIMEZONE" default:"false"`
+	TimeZone         int      `envconfig:"TIMEZONE" default:"7"`
 }
 
 // singleton of data
