@@ -258,15 +258,14 @@ func mapToString(param map[string]interface{}, fields []data.Field, action strin
 			i := v.(float64)
 			nanos := int64(i) * 1000000
 
-			t := time.Unix(0, nanos).Add(time.Hour * -7)
+			// t := time.Unix(0, nanos).Add(time.Hour * -7)
+			t := time.Unix(0, nanos)
 			p = fmt.Sprintf("'%s'", t.Format("2006-01-02 15:04:05"))
 		case "io.debezium.time.MicroTime":
 			i := v.(float64)
 			d := time.Duration(i) * time.Microsecond
 			second := d.Seconds()
 
-			// t := time.Unix(0, nanos).Add(time.Hour * -7)
-			// p = fmt.Sprintf("'%s'", t.Format("15:04:05"))
 			sec := int64(second) % 60
 			min := int64(second) / 60 % 60
 			hour := second / 3600
