@@ -237,19 +237,19 @@ func mapToString(param map[string]interface{}, fields []data.Field,
 				}
 
 				finalScale := float64(1)
-				finalPrec := float64(0)
+				// finalPrec := float64(0)
 
 				scale, err := strconv.Atoi(field.Parameters.Scale)
 				if err == nil {
 					finalScale = float64(scale)
 				}
 
-				prec, err := strconv.Atoi(field.Parameters.DecimalPrecision)
-				if err == nil {
-					finalPrec = float64(prec)
-				}
+				// prec, err := strconv.Atoi(field.Parameters.DecimalPrecision)
+				// if err == nil {
+				// 	finalPrec = float64(prec)
+				// }
 
-				finalResult := float64(out.Int64()) / math.Pow(finalPrec, finalScale)
+				finalResult := float64(out.Int64()) / math.Pow(10, finalScale)
 
 				p = fmt.Sprintf("'%.2f'", finalResult)
 			}
