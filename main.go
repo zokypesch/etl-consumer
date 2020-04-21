@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
+	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
@@ -110,7 +113,6 @@ func main() {
 						publish(topicSource, p, msg.Value, []byte(strconv.Itoa(count)))
 					}
 				}
-				continue
 			}
 			log.Println("change scheme success: ", qryScheme)
 
@@ -118,20 +120,22 @@ func main() {
 			resume(api)
 			continue
 		}
+
 		qry, errQry := processData(msg.Value)
 
 		if errQry != nil {
-			log.Println("failed parse json: ", errQry)
+			log.Println("failed parse json: ", errQry, string(msg.Value))
+			continue
 		}
 
 		err = db.Exec(qry).Error
+
 		if err != nil {
 			if strings.Contains(err.Error(), "Duplicate entry") {
 				// skip duplicate entryy
 				continue
 			}
 			log.Println("error exec qry :", err.Error())
-			log.Println("data query: ", qry)
 			errLog := db.Exec(fmt.Sprintf("INSERT INTO data_err (data, error, `table_name`, `db_name`) VALUES('%s', '%s', '%s', '%s')", string(msg.Value), sanitize.BaseName(err.Error()), cfg.Table, cfg.DBName)).Error
 
 			if errLog != nil {
@@ -191,25 +195,110 @@ func publish(topicSource string, p *kafka.Producer, val []byte, count []byte) {
 	close(deliveryChan)
 }
 
-func mapToString(param map[string]interface{}) (string, string, string, string) {
+func mapToString(param map[string]interface{}, fields []data.Field, action string) (string, string, string, string) {
 	var key []string
 	var val []string
 	var comb []string
 
+	afterField := data.SearchFieldByName(fields, action)
 	re := regexp.MustCompile("((19|20)\\d\\d)-(0?[1-9]|1[012])-(0?[1-9]|[12][0-9]|3[01])")
+	// re_decimal := regexp.MustCompile(`/^\d+\.?\d*$/`)
 
 	for k, v := range param {
 		if v == nil {
 			continue
 		}
+		var p string
 		key = append(key, fmt.Sprintf("`%s`", k))
 
-		p := strings.Replace(fmt.Sprintf("%v", v), "'", "", -1)
+		field := afterField.SearchFieldsByName(k)
+		switch field.Name {
+		case "org.apache.kafka.connect.data.Decimal":
+			dataC, err := base64.StdEncoding.DecodeString(v.(string))
+			if err != nil {
+				p = fmt.Sprintf("'%d'", 0)
+			} else {
+				out := new(big.Int).SetBytes(dataC)
+				if len(dataC) > 0 && dataC[0]&0x80 != 0 {
+					// It's negative.
+					// Convert 2's complement negative to abs big-endian:
+					data2 := make([]byte, len(dataC)+1)
+					data2[0] = 1
+					temp := new(big.Int).SetBytes(data2)
+					out.Sub(temp, out)
 
-		p = fmt.Sprintf("'%s'", p)
-		if re.MatchString(p) {
-			p = strings.Replace(p, "T", " ", -1)
-			p = strings.Replace(p, "Z", "", -1)
+					// Apply negative sign:
+					out.Neg(out)
+				}
+
+				finalScale := float64(1)
+				finalPrec := float64(0)
+
+				scale, err := strconv.Atoi(field.Parameters.Scale)
+				if err == nil {
+					finalScale = float64(scale)
+				}
+
+				prec, err := strconv.Atoi(field.Parameters.DecimalPrecision)
+				if err == nil {
+					finalPrec = float64(prec)
+				}
+
+				finalResult := float64(out.Int64()) / math.Pow(finalPrec, finalScale)
+
+				p = fmt.Sprintf("'%.2f'", finalResult)
+			}
+		case "io.debezium.time.Date":
+			i := v.(float64)
+			t, _ := time.Parse("2006-01-02", "1970-01-01")
+
+			newDate := t.AddDate(0, 0, int(i))
+			p = fmt.Sprintf("'%s'", newDate.Format("2006-01-02"))
+		case "io.debezium.time.Timestamp":
+			i := v.(float64)
+			nanos := int64(i) * 1000000
+
+			t := time.Unix(0, nanos).Add(time.Hour * -7)
+			p = fmt.Sprintf("'%s'", t.Format("2006-01-02 15:04:05"))
+		case "io.debezium.time.MicroTime":
+			i := v.(float64)
+			d := time.Duration(i) * time.Microsecond
+			second := d.Seconds()
+
+			// t := time.Unix(0, nanos).Add(time.Hour * -7)
+			// p = fmt.Sprintf("'%s'", t.Format("15:04:05"))
+			sec := int64(second) % 60
+			min := int64(second) / 60 % 60
+			hour := second / 3600
+			hour = math.Floor(hour)
+
+			p = fmt.Sprintf("'%d:%d:%d'", int64(hour), int64(min), int64(sec))
+
+		case "io.debezium.time.ZonedTimestamp":
+			p = v.(string)
+			if re.MatchString(p) {
+				p = strings.Replace(p, "T", " ", -1)
+				p = strings.Replace(p, "Z", "", -1)
+			}
+			t, _ := time.Parse("2006-01-02 15:04:05", p)
+			newDate := t.Add(time.Hour * 7)
+			p = fmt.Sprintf("'%s'", newDate.Format("2006-01-02 15:04:05"))
+
+		default:
+			p = strings.Replace(fmt.Sprintf("%v", v), "'", "", -1)
+
+			p = fmt.Sprintf("'%s'", p)
+		}
+
+		switch field.Type {
+		case "boolean":
+			ps := v.(bool)
+
+			if ps {
+				p = fmt.Sprintf("'%d'", 1)
+			} else {
+				p = fmt.Sprintf("'%d'", 0)
+			}
 		}
 
 		val = append(val, p)
@@ -223,6 +312,7 @@ func processData(param []byte) (string, error) {
 
 	err := json.Unmarshal(param, &expected)
 	if err != nil {
+		log.Println("parse err: ", string(param))
 		return "", err
 	}
 
@@ -236,15 +326,15 @@ func processData(param []byte) (string, error) {
 	qry := ""
 	if expected.Payload.Before == nil && expected.Payload.After != nil {
 		// insert query
-		field, values, _, _ := mapToString(expected.Payload.After)
+		field, values, _, _ := mapToString(expected.Payload.After, expected.Schema.Fields, "after")
 		qry = fmt.Sprintf("INSERT INTO `%s` (%s) VALUES (%s)", tbl, field, values)
 	} else if expected.Payload.After != nil && expected.Payload.Before != nil {
-		_, _, comb, _ := mapToString(expected.Payload.After)
-		_, _, _, cond := mapToString(expected.Payload.Before)
+		_, _, comb, _ := mapToString(expected.Payload.After, expected.Schema.Fields, "after")
+		_, _, _, cond := mapToString(expected.Payload.Before, expected.Schema.Fields, "before")
 		qry = fmt.Sprintf("UPDATE `%s` SET %s WHERE %s", tbl, comb, cond)
 	} else if expected.Payload.Before != nil && expected.Payload.After == nil {
 		// delete query
-		_, _, _, cond := mapToString(expected.Payload.Before)
+		_, _, _, cond := mapToString(expected.Payload.Before, expected.Schema.Fields, "before")
 		qry = fmt.Sprintf("DELETE FROM `%s` WHERE %s", tbl, cond)
 	}
 

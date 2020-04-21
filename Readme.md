@@ -88,3 +88,9 @@ brew install imagemagick
 
 sudo apt install tesseract-ocr
 sudo apt install libtesseract-dev
+
+# bugs
+- handle decimal -> done
+- handle date -> done
+- remove resume and pause -> done
+- publish topic to kafka (integration with engine)

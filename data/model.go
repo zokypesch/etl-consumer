@@ -3,6 +3,7 @@ package data
 // Response for response
 type Response struct {
 	Payload Payload `json:"payload"`
+	Schema  Schema  `json:"schema"`
 }
 
 // Payload payload from kafka
@@ -28,6 +29,47 @@ type Source struct {
 	Pos       float64 `json:"pos"`
 	Row       float64 `json:"row"`
 	Query     string  `json:"query"`
+}
+
+// Schema for schema
+type Schema struct {
+	Fields []Field `json:"fields"`
+}
+
+// Field for field
+type Field struct {
+	Type       string     `json:"type"`
+	Optional   bool       `json:"optional"`
+	Name       string     `json:"name"`
+	Field      string     `json:"field"`
+	Fields     []Field    `json:"fields"`
+	Parameters Parameters `json:"parameters"`
+}
+
+// Parameters for parameters
+type Parameters struct {
+	Scale            string `json:"scale"`
+	DecimalPrecision string `json:"connect.decimal.precision"`
+}
+
+// SearchFieldByName for search field by name
+func SearchFieldByName(fields []Field, name string) Field {
+	for _, v := range fields {
+		if v.Field == name {
+			return v
+		}
+	}
+	return Field{}
+}
+
+// SearchFieldsByName for search fields
+func (field *Field) SearchFieldsByName(name string) Field {
+	for _, v := range field.Fields {
+		if v.Field == name {
+			return v
+		}
+	}
+	return Field{}
 }
 
 /*{
