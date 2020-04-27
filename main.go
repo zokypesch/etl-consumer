@@ -294,19 +294,45 @@ func mapToString(param map[string]interface{}, fields []data.Field,
 			p = fmt.Sprintf("'%s'", newDate.Format("2006-01-02 15:04:05"))
 
 		default:
-			p = strings.Replace(fmt.Sprintf("%v", v), "'", "", -1)
+			switch field.Type {
+			case "boolean":
+				ps := v.(bool)
 
-			p = fmt.Sprintf("'%s'", p)
-		}
+				if ps {
+					p = fmt.Sprintf("'%d'", 1)
+				} else {
+					p = fmt.Sprintf("'%d'", 0)
+				}
+			case "int64":
+				ps := v.(float64)
 
-		switch field.Type {
-		case "boolean":
-			ps := v.(bool)
+				p = fmt.Sprintf("'%d'", int64(ps))
+			case "float32", "float64":
+				var final float64
 
-			if ps {
-				p = fmt.Sprintf("'%d'", 1)
-			} else {
-				p = fmt.Sprintf("'%d'", 0)
+				final, ok := v.(float64)
+				rightVal := false
+
+				if !ok {
+					ps2, ok := v.(float32)
+					if ok {
+						rightVal = true
+						final = float64(ps2)
+					}
+				} else {
+					rightVal = true
+				}
+
+				if rightVal {
+					p = fmt.Sprintf("'%f'", final)
+				} else {
+					p = fmt.Sprintf("'%v'", v)
+				}
+
+			default:
+				p = strings.Replace(fmt.Sprintf("%v", v), "'", "", -1)
+
+				p = fmt.Sprintf("'%s'", p)
 			}
 		}
 
