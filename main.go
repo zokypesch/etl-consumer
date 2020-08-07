@@ -110,7 +110,7 @@ func main() {
 
 					if count < cfg.RepublishLimit {
 						log.Println("republish message count: ", count)
-						publish(topicSource, p, msg.Value, []byte(strconv.Itoa(count)))
+						publish(topicSource, p, msg.Value, []byte(strconv.Itoa(count)), cfg)
 					}
 				}
 			}
@@ -161,7 +161,7 @@ func main() {
 
 				if count < cfg.RepublishLimit {
 					log.Println("republish message count: ", count)
-					publish(topicSource, p, msg.Value, []byte(strconv.Itoa(count)))
+					publish(topicSource, p, msg.Value, []byte(strconv.Itoa(count)), cfg)
 				}
 
 			}
@@ -171,13 +171,16 @@ func main() {
 	c.Close()
 }
 
-func publish(topicSource string, p *kafka.Producer, val []byte, count []byte) {
+func publish(topicSource string, p *kafka.Producer, val []byte, count []byte, cfg *config.Config) {
+	// republish message
+	newProducer, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": cfg.Kafka})
+
 	log.Println("republish: ", topicSource)
 	// wait for 100ms
 	time.Sleep(time.Millisecond * 100)
 	deliveryChan := make(chan kafka.Event)
 
-	err := p.Produce(&kafka.Message{
+	err = newProducer.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{Topic: &topicSource, Partition: kafka.PartitionAny},
 		Value:          val,
 		Headers:        []kafka.Header{{Key: "loop", Value: count}},
